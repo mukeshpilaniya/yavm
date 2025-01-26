@@ -1,10 +1,9 @@
 use kvm_bindings::kvm_userspace_memory_region;
-use kvm_ioctls::{ioctls::vm::VmFd, Kvm, VcpuFd};
+use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use linux_loader::loader::KernelLoader;
-use std::f32::consts::E;
-use std::io;
+// use linux_loader::loader as Loader;
+use log::info;
 use std::sync::Arc;
-use vm_memory::guest_memory;
 use vm_memory::{mmap::GuestMemoryMmap, GuestAddress, GuestMemory};
 
 const ZEROPG_START: u64 = 0x7000;
@@ -17,7 +16,7 @@ fn setup_vcpu(
     let vcpu_count = 1;
 
     // Creates a new KVM vCPU file descriptor and maps the memory corresponding its kvm_run structure.
-    let vcpu_fd = vm_fd.create_vcpu(0)?;
+    let vcpu_fd = vm_fd.create_vcpu(vcpu_count)?;
 
     // Sets the vCPU registers using the `set_regs` method.
     // This function takes a `kvm_regs` structure that describes the vCPU registers.
@@ -25,7 +24,6 @@ fn setup_vcpu(
     // The `rip` register is set to the starting address of the kernel image, which is the entry point of the kernel.
     let mut regs = vcpu_fd.get_regs()?;
     regs.rip = kernel_offset.0;
-    regs.rflagsv = 0x0000_0000_0000_0002u64;
     regs.rsi = ZEROPG_START;
     vcpu_fd.set_regs(&regs)?;
 
@@ -33,7 +31,7 @@ fn setup_vcpu(
 }
 
 fn load_kernel(
-    guest_mem: GuestMemory,
+    guest_mem: GuestMemoryMmap,
     kernel_offset: Option<GuestAddress>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // The path to the kernel image file.
@@ -41,7 +39,11 @@ fn load_kernel(
     let kernel_path = "Image";
 
     // Opens the kernel image file in read-only mode.
-    let kernel_file = std::fs::File::open(kernel_path)?;
+    let mut kernel_image = std::fs::File::open(kernel_path)?;
+
+    // let mut kernel_data = Vec::new();
+    // kernel_image.read_to_end(&mut kernel_data)?;
+
     let highmem_start_address = None;
 
     // linux_loader::loader::KernelLoader::load(
@@ -51,10 +53,10 @@ fn load_kernel(
     //     highmem_start_address,
     // )?;
 
-    linux_loader::loader::elf::Elf::load(
+    linux_loader::loader::Elf::load(
         &guest_mem,
         kernel_offset,
-        kernel_image,
+        &mut kernel_image,
         highmem_start_address,
     )?;
 
@@ -82,8 +84,7 @@ fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error
     //     fd,
     //     offset as libc::off_t,
     // )`
-    let guest_memory: GuestMemoryMmap<()> =
-        GuestMemoryMmap::from_ranges(&[(guest_addr, mem_size)])?;
+    let guest_memory: GuestMemoryMmap = GuestMemoryMmap::from_ranges(&[(guest_addr, mem_size)])?;
 
     // Register the memory region with the KVM.
     // Defines a `kvm_userspace_memory_region` structure to describe a memory region
@@ -115,7 +116,7 @@ fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Creates a new instance of the KVM (Kernel-based Virtual Machine) structure.
     // This is typically used to interact with the KVM API for virtualization purposes.
-    let kvm = Kvm::new().map_err(Error::kvm_ioctls)?;
+    let kvm = Kvm::new()?;
 
     // Retrieves the KVM API version supported by the host system.
     let kvm_api_ver = kvm.get_api_version();
@@ -132,9 +133,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     load_kernel(guest_mem, Some(kernel_offset))?;
 
     //let vcpu_fd = vm_fd.create_vcpu(0)?;
-    let vcpu_fd = setup_vcpu(&vm_fd, kernel_offset)?;
+    let mut vcpu_fd = setup_vcpu(&vm_fd, kernel_offset)?;
 
-    println!("Virtual machine created with {} KB memory", mem_size / 1024);
+    //println!("Virtual machine created with {} KB memory", mem_size / 1024);
 
     // Run the VCPU
     loop {
