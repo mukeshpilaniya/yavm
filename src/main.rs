@@ -13,16 +13,16 @@ fn setup_vcpu(
     vm_fd: &Arc<VmFd>,
     kernel_offset: GuestAddress,
 ) -> Result<VcpuFd, Box<dyn std::error::Error>> {
-    /// The number of virtual CPUs (vCPUs) to create for the virtual machine.
+    // The number of virtual CPUs (vCPUs) to create for the virtual machine.
     let vcpu_count = 1;
 
-    /// Creates a new KVM vCPU file descriptor and maps the memory corresponding its kvm_run structure.
+    // Creates a new KVM vCPU file descriptor and maps the memory corresponding its kvm_run structure.
     let vcpu_fd = vm_fd.create_vcpu(0)?;
 
-    /// Sets the vCPU registers using the `set_regs` method.
-    /// This function takes a `kvm_regs` structure that describes the vCPU registers.
-    /// The `set_regs` method is used to set the general-purpose registers (GPRs) of the vCPU.
-    /// The `rip` register is set to the starting address of the kernel image, which is the entry point of the kernel.
+    // Sets the vCPU registers using the `set_regs` method.
+    // This function takes a `kvm_regs` structure that describes the vCPU registers.
+    // The `set_regs` method is used to set the general-purpose registers (GPRs) of the vCPU.
+    // The `rip` register is set to the starting address of the kernel image, which is the entry point of the kernel.
     let mut regs = vcpu_fd.get_regs()?;
     regs.rip = kernel_offset.0;
     regs.rflagsv = 0x0000_0000_0000_0002u64;
@@ -36,11 +36,11 @@ fn load_kernel(
     guest_mem: GuestMemory,
     kernel_offset: Option<GuestAddress>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    /// The path to the kernel image file.
-    /// let kernel_path = "bzImage";
+    // The path to the kernel image file.
+    // let kernel_path = "bzImage";
     let kernel_path = "Image";
 
-    /// Opens the kernel image file in read-only mode.
+    // Opens the kernel image file in read-only mode.
     let kernel_file = std::fs::File::open(kernel_path)?;
     let highmem_start_address = None;
 
@@ -62,18 +62,18 @@ fn load_kernel(
 }
 
 fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error::Error>> {
-    /// The size of the memory allocated for the virtual machine, set to 256MB KB (0x100000000 bytes).
+    // The size of the memory allocated for the virtual machine, set to 256MB KB (0x100000000 bytes).
     let mem_size = 0x100000000; // 256 MB
 
-    /// The starting address of the memory region in the guest's physical address space.
+    // The starting address of the memory region in the guest's physical address space.
     let guest_addr = GuestAddress(0);
 
-    /// Creates a `GuestMemoryMmap` object with a single memory region starting at guest address 0
-    /// and spanning `mem_size` bytes. This memory region is used to represent the entire guest's physical
-    /// memory in the virtual machine.
-    /// More deatils: /// More deatils here: https://github.com/rust-vmm/vm-memory/blob/main/DESIGN.md#backend-implementation-based-on-mmap
-    /// Internaly it's calling mmap system call to map the memory region.
-    ///  unsafe {
+    // Creates a `GuestMemoryMmap` object with a single memory region starting at guest address 0
+    // and spanning `mem_size` bytes. This memory region is used to represent the entire guest's physical
+    // memory in the virtual machine.
+    // More deatils: /// More deatils here: https://github.com/rust-vmm/vm-memory/blob/main/DESIGN.md#backend-implementation-based-on-mmap
+    // Internaly it's calling mmap system call to map the memory region.
+    //  unsafe {
     // `libc::mmap(
     //     null_mut(),
     //     size,
@@ -85,16 +85,16 @@ fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error
     let guest_memory: GuestMemoryMmap<()> =
         GuestMemoryMmap::from_ranges(&[(guest_addr, mem_size)])?;
 
-    /// Register the memory region with the KVM.
-    /// Defines a `kvm_userspace_memory_region` structure to describe a memory region
-    /// in the guest's physical address space. This structure includes the slot number,
-    /// guest physical address, size of the memory region, userspace address, and flags.
-    ///
-    /// - `slot`: The slot number for the memory region.
-    /// - `guest_phys_addr`: The starting physical address in the guest's address space.
-    /// - `memory_size`: The size of the memory region in bytes.
-    /// - `userspace_addr`: The starting address of the memory region in the host's address space.
-    /// - `flags`: Additional flags for the memory region (set to 0 in this case).
+    // Register the memory region with the KVM.
+    // Defines a `kvm_userspace_memory_region` structure to describe a memory region
+    // in the guest's physical address space. This structure includes the slot number,
+    // guest physical address, size of the memory region, userspace address, and flags.
+    //
+    // - `slot`: The slot number for the memory region.
+    // - `guest_phys_addr`: The starting physical address in the guest's address space.
+    // - `memory_size`: The size of the memory region in bytes.
+    // - `userspace_addr`: The starting address of the memory region in the host's address space.
+    // - `flags`: Additional flags for the memory region (set to 0 in this case).
     let user_memory_region = kvm_userspace_memory_region {
         // first slot is 0, because we are using only one memory region.
         slot: 0,
@@ -105,19 +105,19 @@ fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error
         flags: 0,
     };
 
-    /// Sets the user memory region for the virtual machine using the `set_user_memory_region` method.
-    /// This function takes a `kvm_userspace_memory_region` structure that describes the memory region
-    /// in the guest's physical address space and maps it to the host's address space.
+    // Sets the user memory region for the virtual machine using the `set_user_memory_region` method.
+    // This function takes a `kvm_userspace_memory_region` structure that describes the memory region
+    // in the guest's physical address space and maps it to the host's address space.
     unsafe { vm_fd.set_user_memory_region(user_memory_region) }?;
     Ok(guest_memory)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// Creates a new instance of the KVM (Kernel-based Virtual Machine) structure.
-    /// This is typically used to interact with the KVM API for virtualization purposes.
+    // Creates a new instance of the KVM (Kernel-based Virtual Machine) structure.
+    // This is typically used to interact with the KVM API for virtualization purposes.
     let kvm = Kvm::new().map_err(Error::kvm_ioctls)?;
 
-    /// Retrieves the KVM API version supported by the host system.
+    // Retrieves the KVM API version supported by the host system.
     let kvm_api_ver = kvm.get_api_version();
     info!("KVM API version: {}", kvm_api_ver);
 
