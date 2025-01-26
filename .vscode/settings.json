@@ -1,4 +1,5 @@
 {
     "rust-analyzer.cargo.target": "x86_64-unknown-linux-gnu",
     "editor.formatOnSave": true,
+    // "rust-analyzer.checkOnSave": true,
 }

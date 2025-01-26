@@ -1,5 +1,6 @@
 use kvm_bindings::kvm_userspace_memory_region;
 use kvm_ioctls::{ioctls::vm::VmFd, Kvm, VcpuFd};
+use linux_loader::loader::KernelLoader;
 use std::f32::consts::E;
 use std::io;
 use std::sync::Arc;
@@ -36,18 +37,20 @@ fn load_kernel(
     kernel_offset: Option<GuestAddress>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     /// The path to the kernel image file.
-    let kernel_path = "bzImage";
+    /// let kernel_path = "bzImage";
+    let kernel_path = "Image";
 
     /// Opens the kernel image file in read-only mode.
     let kernel_file = std::fs::File::open(kernel_path)?;
     let highmem_start_address = None;
 
     // linux_loader::loader::KernelLoader::load(
-    //     guest_mem,
+    //     &guest_mem,
     //     kernel_offset,
     //     kernel_image,
     //     highmem_start_address,
-    // );
+    // )?;
+
     linux_loader::loader::elf::Elf::load(
         &guest_mem,
         kernel_offset,
@@ -59,8 +62,8 @@ fn load_kernel(
 }
 
 fn setup_memory(vm_fd: &Arc<VmFd>) -> Result<GuestMemoryMmap, Box<dyn std::error::Error>> {
-    /// The size of the memory allocated for the virtual machine, set to 1MB KB (0x100000 bytes).
-    let mem_size = 0x100000; // 1 MB
+    /// The size of the memory allocated for the virtual machine, set to 256MB KB (0x100000000 bytes).
+    let mem_size = 0x100000000; // 256 MB
 
     /// The starting address of the memory region in the guest's physical address space.
     let guest_addr = GuestAddress(0);
